@@ -1,0 +1,44 @@
+{
+  "name": "lrc-sidecar",
+  "version": "0.1.0",
+  "description": "Safely find synchronized lyrics and write LRC sidecars for a local music library",
+  "type": "module",
+  "bin": {
+    "lrc-sidecar": "dist/src/cli.js"
+  },
+  "files": [
+    "dist/src",
+    "README.md",
+    "SECURITY.md",
+    "config.example.json",
+    "systemd",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=24.12.0 <25"
+  },
+  "scripts": {
+    "clean": "rm -rf dist coverage",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/test/**/*.test.js",
+    "test:coverage": "npm run build && c8 --all --include='dist/src/**/*.js' --exclude='dist/src/cli.js' --check-coverage --lines=80 --branches=80 --functions=80 --statements=80 --reporter=text --reporter=lcov node --test dist/test/**/*.test.js",
+    "audit": "npm audit --omit=dev --audit-level=high",
+    "start": "node dist/src/cli.js"
+  },
+  "dependencies": {
+    "music-metadata": "11.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "c8": "12.0.0",
+    "typescript": "6.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skhilko/lrc-sidecar.git"
+  },
+  "homepage": "https://github.com/skhilko/lrc-sidecar#readme",
+  "bugs": "https://github.com/skhilko/lrc-sidecar/issues",
+  "license": "MIT"
+}

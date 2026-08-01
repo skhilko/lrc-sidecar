@@ -1,0 +1,32 @@
+[Unit]
+Description=LRC Sidecar synchronized lyrics scan
+Documentation=https://github.com/skhilko/lrc-sidecar
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=lrc-sidecar
+Group=lrc-sidecar
+Environment=MUSIC_ROOT=/srv/music
+ExecStart=/usr/local/bin/lrc-sidecar scan ${MUSIC_ROOT} --config /etc/lrc-sidecar/config.json
+StateDirectory=lrc-sidecar
+RuntimeDirectory=lrc-sidecar
+UMask=0022
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/lrc-sidecar /run/lrc-sidecar /srv/music
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run LRC Sidecar daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=45m
+Persistent=true
+Unit=lrc-sidecar.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,29 @@
+{
+  "statePath": "/var/lib/lrc-sidecar/state.sqlite",
+  "lockPath": "/run/lrc-sidecar/scan.lock",
+  "providerOrigin": "https://lrclib.net",
+  "userAgent": "lrc-sidecar/0.1.0 (https://github.com/skhilko/lrc-sidecar)",
+  "searchFallback": true,
+  "stabilityAgeMs": 60000,
+  "metadataConcurrency": 4,
+  "requestDelayMs": 300,
+  "exactTimeoutMs": 30000,
+  "searchTimeoutMs": 20000,
+  "exactBodyMaxBytes": 1048576,
+  "searchBodyMaxBytes": 5242880,
+  "lyricsMaxBytes": 1048576,
+  "inRunRateLimitMaxMs": 300000,
+  "scoreThreshold": 90,
+  "ambiguityMargin": 3,
+  "tempMaxAgeMs": 86400000,
+  "include": [],
+  "exclude": [".snapshots", "incoming/**"],
+  "retry": {
+    "instrumentalMs": 15552000000,
+    "notFoundMs": 2592000000,
+    "ambiguousMs": 2592000000,
+    "invalidLyricsMs": 2592000000,
+    "providerErrorMs": 86400000,
+    "invalidResponseMs": 86400000
+  }
+}
