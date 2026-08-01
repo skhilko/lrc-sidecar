@@ -204,6 +204,11 @@ create_service_account() {
   install -d -o root -g root -m 0755 "$CONFIG_DIR"
 }
 
+run_as_service() {
+  # runuser preserves the caller's working directory, which may be inaccessible to the service account.
+  (cd / && runuser -u "$SERVICE_USER" -- "$@")
+}
+
 install_application() {
   local source_copy=$1 node_path=$2 backup="${INSTALL_DIR}.backup.$$"
   local npm_path
@@ -320,25 +325,25 @@ EOF
 
 check_music_access() {
   local probe writable_directory
-  if ! runuser -u "$SERVICE_USER" -- test -r "$MUSIC_ROOT" || ! runuser -u "$SERVICE_USER" -- test -x "$MUSIC_ROOT"; then
+  if ! run_as_service test -r "$MUSIC_ROOT" || ! run_as_service test -x "$MUSIC_ROOT"; then
     die "$SERVICE_USER cannot read/traverse $MUSIC_ROOT; grant access and rerun the installer"
   fi
 
-  if ! probe=$(runuser -u "$SERVICE_USER" -- find "$MUSIC_ROOT" -type f \( -iname '*.flac' -o -iname '*.mp3' -o -iname '*.m4a' \) -print -quit 2>/dev/null); then
+  if ! probe=$(run_as_service find "$MUSIC_ROOT" -type f \( -iname '*.flac' -o -iname '*.mp3' -o -iname '*.m4a' \) -print -quit); then
     die "$SERVICE_USER cannot inspect $MUSIC_ROOT; grant access and rerun the installer"
   fi
   writable_directory=$MUSIC_ROOT
   if [[ -n "$probe" ]]; then
     writable_directory=$(dirname -- "$probe")
   fi
-  if ! runuser -u "$SERVICE_USER" -- test -w "$writable_directory" || ! runuser -u "$SERVICE_USER" -- test -x "$writable_directory"; then
+  if ! run_as_service test -w "$writable_directory" || ! run_as_service test -x "$writable_directory"; then
     die "$SERVICE_USER cannot create sidecars in $writable_directory; use --music-group or grant equivalent access, then rerun"
   fi
 }
 
 run_doctor() {
   log "Running doctor as $SERVICE_USER"
-  runuser -u "$SERVICE_USER" -- "$BIN_PATH" doctor "$MUSIC_ROOT" --config "$CONFIG_PATH"
+  run_as_service "$BIN_PATH" doctor "$MUSIC_ROOT" --config "$CONFIG_PATH"
 }
 
 uninstall_application() {
