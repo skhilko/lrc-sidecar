@@ -45,8 +45,8 @@ export class LrclibProvider {
 
   async search(track: TrackIdentity, signal: AbortSignal): Promise<ProviderSearchResult> {
     if (!track.title || !track.primaryArtist) return { status: "not_found" };
+    // Album remains a local scoring signal; sending it here can hide alternate records with usable synced lyrics.
     const parameters: Record<string, string> = { track_name: track.title, artist_name: track.primaryArtist };
-    if (track.album) parameters.album_name = track.album;
     const result = await this.enqueue(() => this.request(this.endpoint("/api/search", parameters), this.config.searchTimeoutMs, this.config.searchBodyMaxBytes, signal));
     if (result.kind !== "json") return mapFailure(result);
     const validation = validateLrclibSearch(result.value);

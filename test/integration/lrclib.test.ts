@@ -23,9 +23,12 @@ describe("LRCLIB client", () => {
     const searchClient = provider(async () => json([]));
     assert.equal((await searchClient.search(track, new AbortController().signal)).status, "not_found");
   });
-  it("validates search arrays", async () => {
-    const result = await provider(async () => json([record])).search(track, new AbortController().signal);
+  it("uses broad field-specific search and validates arrays", async () => {
+    let requested = "";
+    const result = await provider(async (input) => { requested = String(input); return json([record]); }).search(track, new AbortController().signal);
     assert.equal(result.status, "found"); if (result.status === "found") assert.equal(result.records.length, 1);
+    const parameters = new URL(requested).searchParams;
+    assert.equal(parameters.get("track_name"), track.title); assert.equal(parameters.get("artist_name"), track.primaryArtist); assert.equal(parameters.has("album_name"), false);
   });
   it("rejects malformed JSON, wrong content type, oversized bodies, and redirects", async () => {
     const malformed = provider(async () => new Response("{", { headers: { "content-type": "application/json" } }));

@@ -64,9 +64,13 @@ export function splitArtists(value: string): string[] {
 
 function equivalentArtistSets(left: readonly string[], right: readonly string[]): boolean {
   if (left.length === 0 || right.length === 0) return false;
-  const a = new Set(left.map(relaxedNormalize));
-  const b = new Set(right.map(relaxedNormalize));
+  const a = normalizedArtistSet(left);
+  const b = normalizedArtistSet(right);
   return a.size === b.size && [...a].every((artist) => b.has(artist));
+}
+
+function normalizedArtistSet(values: readonly string[]): Set<string> {
+  return new Set(values.flatMap(splitArtists).map(relaxedNormalize));
 }
 
 function containsArtist(left: string, right: string): boolean {

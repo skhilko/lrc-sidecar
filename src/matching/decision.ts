@@ -6,15 +6,16 @@ export interface DecisionOptions { threshold: number; ambiguityMargin: number; l
 export function decideSearchMatch(track: TrackIdentity, records: readonly ProviderLyricsRecord[], options: DecisionOptions): MatchDecision {
   const candidates = records.map((record) => scoreCandidate(track, record, options.lyricsMaxBytes))
     .sort((left, right) => right.score - left.score || left.record.id - right.record.id);
-  const top = candidates[0];
-  if (!top) return { decision: "reject", reasons: ["SCORE_BELOW_THRESHOLD"], candidates };
-  const topQualifies = qualifies(top, options.threshold);
-  if (!topQualifies) {
-    const reasons = unique([...top.reasons, ...(top.score < options.threshold ? ["SCORE_BELOW_THRESHOLD" as const] : [])]);
+  const highestScoring = candidates[0];
+  if (!highestScoring) return { decision: "reject", reasons: ["SCORE_BELOW_THRESHOLD"], candidates };
+  const qualifying = candidates.filter((candidate) => qualifies(candidate, options.threshold));
+  const top = qualifying[0];
+  if (!top) {
+    const reasons = unique([...highestScoring.reasons, ...(highestScoring.score < options.threshold ? ["SCORE_BELOW_THRESHOLD" as const] : [])]);
     return { decision: "reject", reasons, candidates };
   }
-  const second = candidates[1];
-  if (second && qualifies(second, options.threshold) && top.score - second.score <= options.ambiguityMargin) {
+  const second = qualifying[1];
+  if (second && top.score - second.score <= options.ambiguityMargin) {
     return { decision: "ambiguous", candidates: [top, second], reasons: ["COMPETING_CANDIDATE"] };
   }
   return { decision: "accept", candidate: top, score: top.score, reasons: top.reasons };

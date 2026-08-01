@@ -33,6 +33,13 @@ describe("candidate matching", () => {
     assert.ok(scoreCandidate(track, record({ artistName: "Artist Orchestra" }), 1024).reasons.includes("ARTIST_PARTIAL"));
     assert.ok(scoreCandidate(track, record({ artistName: "Else" }), 1024).reasons.includes("ARTIST_MISMATCH"));
   });
+  it("treats differently separated combined artist credits as equivalent sets", () => {
+    const collaborativeTrack = { ...track, primaryArtist: "Apparat, KÁRYYN", albumArtist: "Apparat", artists: ["Apparat, KÁRYYN"] };
+    const collaborativeRecord = record({ artistName: "Apparat & KÁRYYN" });
+    assert.ok(scoreCandidate(collaborativeTrack, collaborativeRecord, 1024).reasons.includes("ARTIST_SET"));
+    assert.equal(verifyExactMatch(collaborativeTrack, collaborativeRecord, 1024).decision, "accept");
+    assert.equal(decideSearchMatch(collaborativeTrack, [collaborativeRecord], { threshold: 90, ambiguityMargin: 3, lyricsMaxBytes: 1024 }).decision, "accept");
+  });
   it("scores relaxed and mismatched albums and permits missing signals", () => {
     assert.ok(scoreCandidate({ ...track, album: "Album!" }, record(), 1024).reasons.includes("ALBUM_RELAXED"));
     assert.ok(scoreCandidate(track, record({ albumName: "Else" }), 1024).reasons.includes("ALBUM_MISMATCH"));
@@ -45,6 +52,10 @@ describe("candidate matching", () => {
     assert.equal(scoreCandidate(track, record({ instrumental: true, syncedLyrics: null }), 1024).hardRejected, false);
   });
   it("accepts a unique safe search match", () => assert.equal(decideSearchMatch(track, [record()], { threshold: 90, ambiguityMargin: 3, lyricsMaxBytes: 1024 }).decision, "accept"));
+  it("ignores a higher-scoring unusable record when a safe candidate exists", () => {
+    const decision = decideSearchMatch(track, [record({ id: 1, syncedLyrics: null }), record({ id: 2, albumName: "Else" })], { threshold: 90, ambiguityMargin: 3, lyricsMaxBytes: 1024 });
+    assert.equal(decision.decision, "accept"); if (decision.decision === "accept") assert.equal(decision.candidate.record.id, 2);
+  });
   it("marks close qualifying candidates ambiguous", () => {
     const decision = decideSearchMatch(track, [record({ id: 2 }), record({ id: 1 })], { threshold: 90, ambiguityMargin: 3, lyricsMaxBytes: 1024 });
     assert.equal(decision.decision, "ambiguous");
