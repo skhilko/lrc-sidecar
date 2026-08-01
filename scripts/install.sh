@@ -278,6 +278,9 @@ install_application() {
     die "could not activate application installation"
   fi
   APP_STAGE=""
+  chmod 0755 "$INSTALL_DIR"
+  run_as_service test -r "$INSTALL_DIR/dist/src/cli.js" \
+    || die "installed application is not readable by $SERVICE_USER"
   rm -rf -- "$backup"
 
   if [[ -L "$BIN_PATH" ]]; then
