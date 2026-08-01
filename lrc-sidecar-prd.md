@@ -1372,8 +1372,9 @@ Recommended hardening where compatible:
 - `ProtectControlGroups=true`
 - `RestrictSUIDSGID=true`
 - `LockPersonality=true`
-- `MemoryDenyWriteExecute=true`
 - `RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6`
+
+`MemoryDenyWriteExecute=true` is not compatible with the Node.js V8 runtime and must not be enabled.
 - `ReadWritePaths=` limited to the state directory and music sidecar locations
 - capability bounding set empty
 
