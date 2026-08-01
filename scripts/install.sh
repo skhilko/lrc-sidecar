@@ -11,8 +11,7 @@ readonly STATE_DIR="/var/lib/lrc-sidecar"
 readonly RUNTIME_DIR="/run/lrc-sidecar"
 readonly SERVICE_PATH="/etc/systemd/system/lrc-sidecar.service"
 readonly TIMER_PATH="/etc/systemd/system/lrc-sidecar.timer"
-readonly SERVICE_USER="lrc-sidecar"
-readonly SERVICE_GROUP="lrc-sidecar"
+readonly DEFAULT_SERVICE_USER="lrc-sidecar"
 readonly SYSTEM_PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 MUSIC_ROOT=""
@@ -20,6 +19,9 @@ REF="main"
 EXPECTED_SHA256=""
 SOURCE_DIR=""
 MUSIC_GROUP=""
+SERVICE_USER="$DEFAULT_SERVICE_USER"
+SERVICE_GROUP="$DEFAULT_SERVICE_USER"
+SERVICE_USER_SET=false
 ENABLE_TIMER=false
 SKIP_DOCTOR=false
 UNINSTALL=false
@@ -39,6 +41,7 @@ Options:
   --ref REF           Git branch, tag, or commit to install (default: main)
   --sha256 HASH       Expected SHA-256 of the downloaded source archive
   --source PATH       Install from a local source checkout instead of GitHub
+  --service-user NAME Run as an existing unprivileged user (default: lrc-sidecar)
   --music-group NAME  Add the service account to an existing library group
   --enable            Enable and start the systemd timer after doctor passes
   --skip-doctor       Skip runtime validation (cannot be combined with --enable)
@@ -103,6 +106,12 @@ parse_args() {
         SOURCE_DIR=$2
         shift 2
         ;;
+      --service-user)
+        (($# >= 2)) || die "--service-user requires a user name"
+        SERVICE_USER=$2
+        SERVICE_USER_SET=true
+        shift 2
+        ;;
       --music-group)
         (($# >= 2)) || die "--music-group requires a group name"
         MUSIC_GROUP=$2
@@ -131,7 +140,7 @@ parse_args() {
   done
 
   if [[ "$UNINSTALL" == true ]]; then
-    [[ -z "$MUSIC_ROOT" && -z "$SOURCE_DIR" && -z "$EXPECTED_SHA256" && -z "$MUSIC_GROUP" && "$ENABLE_TIMER" == false && "$SKIP_DOCTOR" == false ]] \
+    [[ -z "$MUSIC_ROOT" && -z "$SOURCE_DIR" && -z "$EXPECTED_SHA256" && -z "$MUSIC_GROUP" && "$SERVICE_USER_SET" == false && "$ENABLE_TIMER" == false && "$SKIP_DOCTOR" == false ]] \
       || die "--uninstall cannot be combined with installation options"
     return
   fi
@@ -139,6 +148,7 @@ parse_args() {
   [[ -n "$MUSIC_ROOT" ]] || die "--music-root is required"
   [[ "$SKIP_DOCTOR" == false || "$ENABLE_TIMER" == false ]] || die "--skip-doctor cannot be combined with --enable"
   [[ -z "$SOURCE_DIR" || -z "$EXPECTED_SHA256" ]] || die "--sha256 applies only to downloaded source"
+  [[ "$SERVICE_USER" =~ ^[A-Za-z_][A-Za-z0-9_.-]*$ ]] || die "invalid --service-user value"
   [[ "$REF" =~ ^[A-Za-z0-9._/-]+$ && "$REF" != -* && "$REF" != *..* ]] || die "invalid --ref value"
   [[ -z "$EXPECTED_SHA256" || "$EXPECTED_SHA256" =~ ^[a-f0-9]{64}$ ]] || die "--sha256 must contain 64 hexadecimal characters"
 }
@@ -186,22 +196,42 @@ prepare_source() {
   tar -xzf "$archive" --strip-components=1 -C "$source_copy"
 }
 
-create_service_account() {
-  if ! getent group "$SERVICE_GROUP" >/dev/null; then
-    groupadd --system "$SERVICE_GROUP"
-  fi
-  if ! id "$SERVICE_USER" >/dev/null 2>&1; then
-    local nologin
-    nologin=$(command -v nologin || printf '/usr/sbin/nologin')
-    useradd --system --gid "$SERVICE_GROUP" --home-dir "$STATE_DIR" --shell "$nologin" "$SERVICE_USER"
+resolve_service_account() {
+  if [[ "$SERVICE_USER" == "$DEFAULT_SERVICE_USER" ]]; then
+    if id "$SERVICE_USER" >/dev/null 2>&1 && [[ $(id -u "$SERVICE_USER") -eq 0 ]]; then
+      die "service user cannot be root"
+    fi
+  else
+    getent passwd "$SERVICE_USER" >/dev/null || die "service user does not exist: $SERVICE_USER"
+    [[ $(id -u "$SERVICE_USER") -ne 0 ]] || die "service user cannot be root"
+    SERVICE_GROUP=$(id -gn "$SERVICE_USER")
   fi
   if [[ -n "$MUSIC_GROUP" ]]; then
     getent group "$MUSIC_GROUP" >/dev/null || die "music group does not exist: $MUSIC_GROUP"
+  fi
+}
+
+prepare_service_account() {
+  if [[ "$SERVICE_USER" == "$DEFAULT_SERVICE_USER" ]]; then
+    if ! getent group "$SERVICE_GROUP" >/dev/null; then
+      groupadd --system "$SERVICE_GROUP"
+    fi
+    if ! id "$SERVICE_USER" >/dev/null 2>&1; then
+      local nologin
+      nologin=$(command -v nologin || printf '/usr/sbin/nologin')
+      useradd --system --gid "$SERVICE_GROUP" --home-dir "$STATE_DIR" --shell "$nologin" "$SERVICE_USER"
+    fi
+  fi
+  if [[ -n "$MUSIC_GROUP" ]]; then
     usermod --append --groups "$MUSIC_GROUP" "$SERVICE_USER"
   fi
+
   install -d -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 0750 "$STATE_DIR"
   install -d -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 0755 "$RUNTIME_DIR"
+  # A reinstall may switch identities; existing database and lock files must remain usable.
+  chown -R -- "$SERVICE_USER:$SERVICE_GROUP" "$STATE_DIR" "$RUNTIME_DIR"
   install -d -o root -g root -m 0755 "$CONFIG_DIR"
+  log "Using service account $SERVICE_USER:$SERVICE_GROUP"
 }
 
 run_as_service() {
@@ -369,7 +399,7 @@ main() {
   fi
 
   require_root
-  for command in awk dirname find getent groupadd id install readlink runuser sed sha256sum systemctl tar useradd usermod; do
+  for command in awk chown dirname find getent groupadd id install readlink runuser sed sha256sum systemctl tar useradd usermod; do
     require_command "$command"
   done
   [[ -d /run/systemd/system ]] || die "systemd is not running as the system service manager"
@@ -378,6 +408,7 @@ main() {
   MUSIC_ROOT=$(readlink -f -- "$MUSIC_ROOT")
   [[ -d "$MUSIC_ROOT" ]] || die "music root is not a directory: $MUSIC_ROOT"
   [[ "$MUSIC_ROOT" != / ]] || die "the filesystem root cannot be used as the music root"
+  resolve_service_account
 
   local node_path source_copy
   node_path=$(find_system_node)
@@ -387,7 +418,7 @@ main() {
   prepare_source "$source_copy"
   [[ -f "$source_copy/config.example.json" && -f "$source_copy/src/cli.ts" ]] || die "downloaded source is incomplete"
 
-  create_service_account
+  prepare_service_account
   install_application "$source_copy" "$node_path"
   install_configuration "$source_copy"
   install_units

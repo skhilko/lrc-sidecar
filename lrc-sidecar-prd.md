@@ -1355,6 +1355,8 @@ Recommended account:
 - create access to album directories or the mounted music tree;
 - exclusive write access to its state directory.
 
+An existing unprivileged account may be selected when a network filesystem relies on that account's numeric UID. This is less isolated because the service receives the selected account's filesystem privileges; systemd hardening and write-path restrictions remain required.
+
 ### 16.2 Systemd
 
 The application must work as a `Type=oneshot` service named `lrc-sidecar.service`, with recurring execution provided by `lrc-sidecar.timer`.
@@ -1400,7 +1402,8 @@ Preferred model:
 A self-contained shell installer should support local execution and execution from standard input so operators do not need to create systemd services manually. It must:
 
 - require an explicit music root and render it into both the scan command and `ReadWritePaths`;
-- create the unprivileged service account and application directories idempotently;
+- create the default service account or validate a selected existing unprivileged account;
+- create application directories idempotently and migrate state ownership when the selected identity changes;
 - preserve existing configuration and state;
 - validate the runtime as the service account before enabling the timer;
 - never alter ownership or permissions in the music library;
