@@ -1395,6 +1395,18 @@ Preferred model:
 - LRC Sidecar: controlled write access for sidecar creation;
 - Navidrome or another compatible music server: read-only music mount.
 
+### 16.5 Installer
+
+A self-contained shell installer should support local execution and execution from standard input so operators do not need to create systemd services manually. It must:
+
+- require an explicit music root and render it into both the scan command and `ReadWritePaths`;
+- create the unprivileged service account and application directories idempotently;
+- preserve existing configuration and state;
+- validate the runtime as the service account before enabling the timer;
+- never alter ownership or permissions in the music library;
+- support pinned Git refs and optional source-archive checksum verification;
+- preserve configuration and state during uninstall.
+
 ---
 
 ## 17. Performance expectations
@@ -1485,6 +1497,7 @@ The MVP is ready for deployment only when all are true:
 17. Deployment documentation uses an unprivileged service account.
 18. There are no known high-severity dependency vulnerabilities.
 19. The application can run successfully as a hardened systemd oneshot service on a supported Linux host.
+20. The installer can deploy and validate the application without manual systemd unit creation.
 
 ---
 

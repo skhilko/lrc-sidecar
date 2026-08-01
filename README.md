@@ -13,6 +13,27 @@ It favors precision over coverage: provider results are validated and scored loc
 
 ## Install
 
+The installer creates the service account, builds and installs the application, writes hardened systemd units for the selected music root, validates the installation, and optionally enables the daily timer:
+
+```sh
+wget -qO- https://raw.githubusercontent.com/skhilko/lrc-sidecar/main/scripts/install.sh \
+  | sudo bash -s -- --music-root /srv/music --ref main --enable
+```
+
+Running a remote script directly is convenient but carries risk. The safer approach is to download and inspect it first:
+
+```sh
+wget https://raw.githubusercontent.com/skhilko/lrc-sidecar/main/scripts/install.sh
+less install.sh
+sudo bash install.sh --music-root /srv/music --ref main --enable
+```
+
+Use the same version for the script and source when installing a release, for example `v0.1.0` in both URLs/options. `--sha256 HASH` verifies the downloaded source archive when an expected checksum is available. A commit SHA is preferable to a mutable branch for reproducible installs.
+
+The installer requires a system-wide Node.js 24.12 or later in the Node 24 release line. It preserves an existing `/etc/lrc-sidecar/config.json` and never changes ownership or permissions in the music library. If the library uses group-based write access, pass its existing group with `--music-group media`. Run `bash install.sh --help` for all options, including local-source installation and uninstall (which preserves configuration and state).
+
+### Build from source
+
 ```sh
 npm ci --ignore-scripts
 npm run build
@@ -92,19 +113,15 @@ The state database must be outside the music tree. Keep the music server on a se
 
 ## Deployment
 
-Example hardened units are in [`systemd/`](systemd/). Copy and adapt them:
+The installer is the recommended deployment method. Without `--enable`, it installs and validates everything but does not enable scheduling. Enable it later with:
 
 ```sh
-sudo useradd --system --home /var/lib/lrc-sidecar --shell /usr/sbin/nologin lrc-sidecar
-sudo install -d -o lrc-sidecar -g lrc-sidecar -m 0750 /var/lib/lrc-sidecar
-sudo install -d -m 0755 /etc/lrc-sidecar
-sudo install -m 0644 config.example.json /etc/lrc-sidecar/config.json
-sudo install -m 0644 systemd/lrc-sidecar.{service,timer} /etc/systemd/system/
-sudo systemctl daemon-reload
 sudo systemctl enable --now lrc-sidecar.timer
 ```
 
-Change `/srv/music` and `ReadWritePaths` in the service. The timer runs daily with randomized delay. Run `doctor` under the service account before the first scan.
+Example hardened units remain in [`systemd/`](systemd/) for operators who prefer manual deployment. Change both the scan path and `ReadWritePaths` in the service before installing them. The timer runs daily with randomized delay.
+
+The `lrc-sidecar` account must be able to read audio and create sidecars in album directories. The installer checks access to the music root but deliberately does not modify library permissions. Keep the music server on a separate read-only identity.
 
 ## Privacy
 
