@@ -264,7 +264,10 @@ install_application() {
     PATH="$SYSTEM_PATH" "$npm_path" ci --omit=dev --ignore-scripts
   )
   chown -R root:root "$APP_STAGE"
+  chmod 0755 "$APP_STAGE"
   chmod -R go-w "$APP_STAGE"
+  run_as_service test -r "$APP_STAGE/dist/src/cli.js" \
+    || die "built application is not readable by $SERVICE_USER"
 
   rm -rf -- "$backup"
   if [[ -e "$INSTALL_DIR" ]]; then
